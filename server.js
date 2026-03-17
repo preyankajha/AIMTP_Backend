@@ -22,7 +22,7 @@ const analyticsRoutes = require('./routes/analytics');
 connectDB();
 
 const app = express();
-
+app.set('trust proxy', 1);
 // CORS
 app.use(
   cors({

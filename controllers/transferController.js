@@ -25,24 +25,12 @@ const createTransfer = async (req, res, next) => {
       currentZone, 
       currentDivision, 
       currentStation, 
-      desiredLocations // Array of {zone, division, station, priority}
+      desiredLocations, // Array of {zone, division, station, priority}
+      workplaceRemark
     } = req.body;
 
-    // Limit check
-    const maxRequests = parseInt(process.env.MAX_TRANSFER_REQUESTS) || 3;
-    const activeRequestsCount = await TransferRequest.countDocuments({
-      userId: req.user._id,
-      status: 'active'
-    });
-
-    if (activeRequestsCount >= maxRequests) {
-      return res.status(400).json({ 
-        message: `You have reached the maximum limit of ${maxRequests} active transfer requests. Please delete an existing request to create a new one.` 
-      });
-    }
-
     // Check if user already has an active transfer request for exact same current location
-    const existingRequest = await TransferRequest.findOne({
+    let transferRequest = await TransferRequest.findOne({
       userId: req.user._id,
       department,
       subDepartment,
@@ -51,35 +39,101 @@ const createTransfer = async (req, res, next) => {
       status: 'active',
     });
 
-    if (existingRequest) {
-      return res.status(400).json({ message: 'You already have an active transfer request for this position. You can edit it to add more desired locations.' });
-    }
+    let matches = [];
+    let addedAny = false;
+    let isNew = false;
+    const User = require('../models/User');
 
-    const transferRequest = await TransferRequest.create({
-      userId: req.user._id,
-      department,
-      subDepartment,
-      designation,
-      modeOfSelection,
-      payLevel,
-      basicPay,
-      gradePay,
-      category,
-      sector,
-      currentZone,
-      currentDivision,
-      currentStation: currentStation.toUpperCase(),
-      desiredLocations: desiredLocations.map(loc => ({
+    if (transferRequest) {
+      // Append new desired locations that don't already exist
+      const existingLocsStr = transferRequest.desiredLocations.map(
+        l => `${l.zone}-${l.division}-${l.station.toUpperCase()}`
+      );
+      const existingPriorities = transferRequest.desiredLocations.map(l => l.priority);
+      
+      const newLocs = desiredLocations.map(loc => ({
         ...loc,
         station: loc.station.toUpperCase()
-      }))
-    });
+      }));
 
-    // Run the matching engine asynchronously
-    const matches = await findAndCreateMatches(transferRequest);
+      for (const loc of newLocs) {
+        const key = `${loc.zone}-${loc.division}-${loc.station}`;
+        if (!existingLocsStr.includes(key)) {
+          const priorityToUse = parseInt(loc.priority) || (transferRequest.desiredLocations.length + 1);
+          
+          if (existingPriorities.includes(priorityToUse)) {
+            return res.status(400).json({ message: `Priority P${priorityToUse} is already used in your existing transfer request. Please select a different priority.` });
+          }
+
+          if (transferRequest.desiredLocations.length >= 4) {
+             // We give 4 as max according to the user message request, let's keep 4.
+            return res.status(400).json({ message: 'You have exhausted the maximum limit of 4 desired locations for this request. Cannot add more desired locations.' });
+          }
+
+          transferRequest.desiredLocations.push({ ...loc, priority: priorityToUse });
+          existingPriorities.push(priorityToUse);
+          existingLocsStr.push(key);
+          addedAny = true;
+        }
+      }
+
+      // Update basic fields just in case they were corrected
+      transferRequest.modeOfSelection = modeOfSelection;
+      transferRequest.payLevel = payLevel;
+      transferRequest.basicPay = basicPay;
+      transferRequest.gradePay = gradePay;
+      transferRequest.category = category;
+      transferRequest.sector = sector;
+      transferRequest.currentZone = currentZone;
+      transferRequest.currentDivision = currentDivision;
+      transferRequest.workplaceRemark = workplaceRemark;
+
+      await transferRequest.save();
+
+      // Only run match engine if something was added or changed significantly
+      matches = await findAndCreateMatches(transferRequest);
+
+    } else {
+      // Limit check for NEW requests
+      const maxRequests = parseInt(process.env.MAX_TRANSFER_REQUESTS) || 3;
+      const activeRequestsCount = await TransferRequest.countDocuments({
+        userId: req.user._id,
+        status: 'active'
+      });
+
+      if (activeRequestsCount >= maxRequests) {
+        return res.status(400).json({ 
+          message: `You have reached the maximum limit of ${maxRequests} active transfer requests. Please delete an existing request under a different position to create a new one.` 
+        });
+      }
+
+      // Create new transfer request
+      transferRequest = await TransferRequest.create({
+        userId: req.user._id,
+        department,
+        subDepartment,
+        designation,
+        modeOfSelection,
+        payLevel,
+        basicPay,
+        gradePay,
+        category,
+        workplaceRemark,
+        sector,
+        currentZone,
+        currentDivision,
+        currentStation: currentStation.toUpperCase(),
+        desiredLocations: desiredLocations.map(loc => ({
+          ...loc,
+          station: loc.station.toUpperCase()
+        }))
+      });
+      
+      matches = await findAndCreateMatches(transferRequest);
+      isNew = true;
+    }
 
     // Link to User Profile: Update user's professional details automatically
-    const User = require('../models/User');
     await User.findByIdAndUpdate(req.user._id, {
       sector,
       department,
@@ -91,11 +145,23 @@ const createTransfer = async (req, res, next) => {
       payLevel,
       gradePay,
       basicPay,
-      category
+      category,
+      workplaceRemark
     });
 
-    res.status(201).json({
-      message: 'Transfer request created successfully',
+    let messageStr = 'Transfer request created successfully.';
+    if (!isNew) {
+      if (addedAny) {
+        messageStr = 'New desired locations successfully added to your existing transfer request!';
+      } else {
+        messageStr = 'These locations were already present in your existing transfer request.';
+      }
+    } else {
+      messageStr = `Request created successfully! ${matches.length > 0 ? `Good news: ${matches.length} matches found instantly!` : 'We will notify you when a match is found.'}`;
+    }
+
+    res.status(isNew ? 201 : 200).json({
+      message: messageStr,
       transferRequest,
       matchesFound: matches.length,
     });
@@ -184,7 +250,7 @@ const updateTransfer = async (req, res, next) => {
     if (updateData.sector || updateData.department || updateData.designation || updateData.currentStation) {
       const User = require('../models/User');
       const profileUpdates = {};
-      const fields = ['sector', 'department', 'subDepartment', 'designation', 'currentZone', 'currentDivision', 'currentStation', 'payLevel', 'gradePay', 'basicPay', 'category'];
+      const fields = ['sector', 'department', 'subDepartment', 'designation', 'currentZone', 'currentDivision', 'currentStation', 'payLevel', 'gradePay', 'basicPay', 'category', 'workplaceRemark'];
       fields.forEach(f => {
         if (updateData[f] !== undefined) profileUpdates[f] = updateData[f];
       });

@@ -74,6 +74,11 @@ const transferRequestSchema = new mongoose.Schema(
       required: [true, 'Category is required'],
       enum: ['General', 'SC', 'ST', 'OBC', 'EWS'],
     },
+    workplaceRemark: {
+      type: String,
+      required: [true, 'Working condition remark is required'],
+      maxlength: 500,
+    },
     status: {
       type: String,
       enum: ['active', 'matched', 'cancelled'],

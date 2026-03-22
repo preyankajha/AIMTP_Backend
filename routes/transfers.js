@@ -22,15 +22,25 @@ const transferValidation = [
   body('currentZone').trim().notEmpty().withMessage('Current Zone is required'),
   body('currentDivision').trim().notEmpty().withMessage('Current Division is required'),
   body('currentStation').trim().notEmpty().withMessage('Current Station is required'),
-  body('desiredZone').trim().notEmpty().withMessage('Desired Zone is required'),
-  body('desiredDivision').trim().notEmpty().withMessage('Desired Division is required'),
-  body('desiredStation').trim().notEmpty().withMessage('Desired Station is required'),
-  body('desiredStation').custom((value, { req }) => {
-    if (value.toUpperCase() === req.body.currentStation?.toUpperCase()) {
-      throw new Error('Desired station must be different from current station');
-    }
-    return true;
-  }),
+  body('workplaceRemark').trim().notEmpty().withMessage('Working condition remarks are required'),
+  body('desiredLocations').isArray({ min: 1, max: 4 }).withMessage('You can add a maximum of 4 desired locations')
+    .custom((locations) => {
+      const priorities = locations.map(loc => parseInt(loc.priority) || 1);
+      const uniquePriorities = new Set(priorities);
+      if (uniquePriorities.size !== priorities.length) {
+        throw new Error('Each desired location must have a unique priority.');
+      }
+      return true;
+    }),
+  body('desiredLocations.*.zone').trim().notEmpty().withMessage('Desired Zone is required'),
+  body('desiredLocations.*.division').trim().notEmpty().withMessage('Desired Division is required'),
+  body('desiredLocations.*.station').trim().notEmpty().withMessage('Desired Station is required')
+    .custom((value, { req }) => {
+      if (req.body.currentStation && value.toUpperCase() === req.body.currentStation.toUpperCase()) {
+        throw new Error('Desired station must be different from current station');
+      }
+      return true;
+    }),
 ];
 
 router.post('/', protect, transferValidation, createTransfer);

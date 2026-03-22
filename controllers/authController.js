@@ -84,6 +84,7 @@ const register = async (req, res, next) => {
         gradePay: user.gradePay,
         basicPay: user.basicPay,
         category: user.category,
+        workplaceRemark: user.workplaceRemark,
       },
     });
   } catch (error) {
@@ -140,6 +141,7 @@ const login = async (req, res, next) => {
         gradePay: user.gradePay,
         basicPay: user.basicPay,
         category: user.category,
+        workplaceRemark: user.workplaceRemark,
       },
     });
   } catch (error) {
@@ -244,6 +246,7 @@ const googleAuth = async (req, res, next) => {
         gradePay: user.gradePay,
         basicPay: user.basicPay,
         category: user.category,
+        workplaceRemark: user.workplaceRemark,
       },
     });
   } catch (error) {
@@ -412,6 +415,7 @@ const verifyEmailOtp = async (req, res, next) => {
         gradePay: user.gradePay,
         basicPay: user.basicPay,
         category: user.category,
+        workplaceRemark: user.workplaceRemark,
       }
     });
   } catch (error) {
@@ -583,7 +587,7 @@ const updateProfileImage = async (req, res, next) => {
 // @access  Private
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, mobile, sector, department, subDepartment, designation, currentZone, currentDivision, currentStation, payLevel, gradePay, basicPay, category } = req.body;
+    const { name, mobile, sector, department, subDepartment, designation, currentZone, currentDivision, currentStation, payLevel, gradePay, basicPay, category, workplaceRemark } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -605,6 +609,7 @@ const updateProfile = async (req, res, next) => {
     user.gradePay = gradePay ?? user.gradePay;
     user.basicPay = basicPay ?? user.basicPay;
     user.category = category ?? user.category;
+    user.workplaceRemark = workplaceRemark ?? user.workplaceRemark;
 
     await user.save();
 

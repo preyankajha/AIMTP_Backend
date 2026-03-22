@@ -55,6 +55,7 @@ const userSchema = new mongoose.Schema(
     gradePay: { type: String, default: '' },
     basicPay: { type: String, default: '' },
     category: { type: String, default: '' },
+    workplaceRemark: { type: String, default: '', maxlength: 500 },
   },
   { timestamps: true }
 );

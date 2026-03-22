@@ -6,7 +6,6 @@ const morgan = require('morgan');
 
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
-const { generalLimiter } = require('./middleware/rateLimiter');
 const analyticsMiddleware = require('./middleware/analyticsMiddleware');
 
 // Routes
@@ -39,9 +38,6 @@ app.use(express.urlencoded({ extended: false }));
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
-
-// General rate limiter
-app.use('/api', generalLimiter);
 
 // Analytics & Hits capture
 app.use(analyticsMiddleware);

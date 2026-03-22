@@ -3,7 +3,6 @@ const router = express.Router();
 const { body } = require('express-validator');
 const { register, login, getProfile, updateProfile, refresh, changePassword, sendVerificationOtp, verifyEmailOtp, forgotPassword, resetPassword, uploadProfileImage, updateProfileImage, googleAuth } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
-const { authLimiter } = require('../middleware/rateLimiter');
 const { uploadProfile } = require('../middleware/uploadMiddleware');
 
 // Validation rules
@@ -23,11 +22,11 @@ const loginValidation = [
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
-router.post('/register', authLimiter, registerValidation, register);
-router.post('/login', authLimiter, loginValidation, login);
-router.post('/google', authLimiter, googleAuth);
-router.post('/forgot-password', authLimiter, forgotPassword);
-router.post('/reset-password', authLimiter, resetPassword);
+router.post('/register', registerValidation, register);
+router.post('/login', loginValidation, login);
+router.post('/google', googleAuth);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.post('/send-verification-otp', protect, sendVerificationOtp);
 router.post('/verify-email-otp', protect, verifyEmailOtp);
 router.post('/upload-profile-image', protect, uploadProfile.single('profileImage'), uploadProfileImage);

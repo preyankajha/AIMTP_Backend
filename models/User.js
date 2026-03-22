@@ -8,10 +8,15 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Name is required'],
       trim: true,
     },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     mobile: {
       type: String,
-      required: [true, 'Mobile number is required'],
-      match: [/^[6-9]\d{9}$/, 'Please enter a valid 10-digit mobile number'],
+      match: [/^([6-9]\d{9})?$/, 'Please enter a valid 10-digit mobile number'],
+      default: '',
     },
     email: {
       type: String,
@@ -23,7 +28,6 @@ const userSchema = new mongoose.Schema(
     },
     passwordHash: {
       type: String,
-      required: true,
       select: false,
     },
     verified: {

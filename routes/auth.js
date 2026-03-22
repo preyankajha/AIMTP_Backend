@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { register, login, getProfile, updateProfile, refresh, changePassword, sendVerificationOtp, verifyEmailOtp, forgotPassword, resetPassword, uploadProfileImage, updateProfileImage } = require('../controllers/authController');
+const { register, login, getProfile, updateProfile, refresh, changePassword, sendVerificationOtp, verifyEmailOtp, forgotPassword, resetPassword, uploadProfileImage, updateProfileImage, googleAuth } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { uploadProfile } = require('../middleware/uploadMiddleware');
@@ -25,6 +25,7 @@ const loginValidation = [
 
 router.post('/register', authLimiter, registerValidation, register);
 router.post('/login', authLimiter, loginValidation, login);
+router.post('/google', authLimiter, googleAuth);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password', authLimiter, resetPassword);
 router.post('/send-verification-otp', protect, sendVerificationOtp);

@@ -3,6 +3,9 @@ const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
+const { OAuth2Client } = require('google-auth-library');
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Generate Access JWT
 const generateAccessToken = (id) => {
@@ -115,6 +118,110 @@ const login = async (req, res, next) => {
     const refreshToken = generateRefreshToken(user._id, rememberMe);
 
     res.json({
+      message: 'Login successful',
+      accessToken,
+      refreshToken,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        verified: user.verified,
+        profileImage: user.profileImage,
+        sector: user.sector,
+        department: user.department,
+        subDepartment: user.subDepartment,
+        designation: user.designation,
+        currentZone: user.currentZone,
+        currentDivision: user.currentDivision,
+        currentStation: user.currentStation,
+        payLevel: user.payLevel,
+        gradePay: user.gradePay,
+        basicPay: user.basicPay,
+        category: user.category,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Google Login / Signup
+// @route   POST /api/auth/google
+// @access  Public
+const googleAuth = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    
+    let googleId, email, name, picture;
+    
+    try {
+      // First try as idToken
+      try {
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+        });
+        const payload = ticket.getPayload();
+        googleId = payload.sub;
+        email = payload.email;
+        name = payload.name;
+        picture = payload.picture;
+      } catch (idTokenError) {
+        // Fallback: try as access_token
+        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch user info with access token');
+        }
+        
+        const payload = await response.json();
+        googleId = payload.sub;
+        email = payload.email;
+        name = payload.name;
+        picture = payload.picture;
+      }
+    } catch (e) {
+      console.error('Google token verification failed', e);
+      return res.status(401).json({ message: 'Invalid or expired Google token' });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (user) {
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.verified = true;
+        if (!user.profileImage) {
+          user.profileImage = picture;
+        }
+        await user.save();
+      }
+    } else {
+      user = await User.create({
+        name,
+        email,
+        googleId,
+        verified: true,
+        profileImage: picture || '',
+      });
+      
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        userId: user._id,
+        title: 'Welcome to RailTransfer!',
+        message: `Hi ${name.split(' ')[0]}, thank you for joining our platform. Start by posting your transfer request to find a match.`,
+        type: 'info',
+        link: '/transfers/create'
+      });
+    }
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    res.status(200).json({
       message: 'Login successful',
       accessToken,
       refreshToken,
@@ -322,8 +429,7 @@ const forgotPassword = async (req, res, next) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      // Return a generic semantic success even if the email wasn't found to prevent email enumeration
-      return res.json({ message: 'If an account exists with that email, an OTP has been sent.' });
+      return res.status(404).json({ message: 'No account found with this email address.' });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -333,16 +439,29 @@ const forgotPassword = async (req, res, next) => {
     try {
       await require('../utils/email')({
         email: user.email,
-        subject: 'Password Reset OTP - AIMTP',
-        html: `<h2>All India Mutual Transfer Portal - Password Reset</h2>
-               <p>We received a request to reset your password. Your OTP is <strong style="font-size: 24px; color: #dc2626;">${otp}</strong>.</p>
-               <p>It is valid for 10 minutes. If you did not request this, please ignore this email.</p>`,
+        subject: 'Password Reset Request - AIMTP',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #1e293b; text-align: center;">All India Mutual Transfer Portal</h2>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <p>Hi ${user.name || 'User'},</p>
+            <p>We received a request to reset the password for your AIMTP account.</p>
+            <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Your One-Time Password (OTP)</p>
+              <h1 style="margin: 10px 0; font-size: 36px; color: #ef4444; letter-spacing: 4px;">${otp}</h1>
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Valid for 10 minutes</p>
+            </div>
+            <p>If you did not request this, you can safely ignore this email.</p>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 40px; text-align: center;">© ${new Date().getFullYear()} All India Mutual Transfer Portal. All rights reserved.</p>
+          </div>
+        `,
+        message: `Your AIMTP password reset OTP is ${otp}. This code is valid for 10 minutes.`
       });
-      res.json({ message: 'If an account exists with that email, an OTP has been sent.' });
+      res.json({ message: 'A password reset OTP has been sent to your email.' });
     } catch (err) {
       console.error(err);
       console.log(`Demo Reset OTP for ${email} is: ${otp}`);
-      res.json({ message: 'If an account exists with that email, an OTP has been sent. (Check server console if no SMTP)' });
+      res.json({ message: 'A password reset OTP has been sent (Check server console if no SMTP).' });
     }
   } catch (error) {
     next(error);
@@ -495,4 +614,4 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile, refresh, changePassword, sendVerificationOtp, verifyEmailOtp, forgotPassword, resetPassword, uploadProfileImage, updateProfileImage };
+module.exports = { register, login, googleAuth, getProfile, updateProfile, refresh, changePassword, sendVerificationOtp, verifyEmailOtp, forgotPassword, resetPassword, uploadProfileImage, updateProfileImage };

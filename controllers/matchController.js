@@ -9,10 +9,10 @@ const getMyMatches = async (req, res, next) => {
       $or: [{ userA: req.user._id }, { userB: req.user._id }],
       status: 'active',
     })
-      .populate('userA', 'name mobile')
-      .populate('userB', 'name mobile')
-      .populate('requestA', 'designation currentZone currentDivision currentStation desiredZone desiredDivision desiredStation')
-      .populate('requestB', 'designation currentZone currentDivision currentStation desiredZone desiredDivision desiredStation')
+      .populate('userA', 'name mobile whatsapp email')
+      .populate('userB', 'name mobile whatsapp email')
+      .populate('requestA', 'designation currentZone currentDivision currentStation desiredZone desiredDivision desiredStation contactOptions')
+      .populate('requestB', 'designation currentZone currentDivision currentStation desiredZone desiredDivision desiredStation contactOptions')
       .sort({ createdAt: -1 });
 
     // For each match, determine which user is "you" and which is "partner"
@@ -35,7 +35,9 @@ const getMyMatches = async (req, res, next) => {
           region: partnerRequest.currentZone,
           division: partnerRequest.currentDivision,
           station: partnerRequest.currentStation,
-          mobile: hasRevealedContact ? partner.mobile : null,
+          mobile: hasRevealedContact ? (partnerRequest.contactOptions?.phone || partner.mobile) : null,
+          whatsapp: hasRevealedContact ? (partnerRequest.contactOptions?.whatsapp || partner.whatsapp) : null,
+          email: hasRevealedContact ? (partnerRequest.contactOptions?.email || partner.email) : null,
         },
         myRequest,
         partnerRequest,
@@ -62,8 +64,10 @@ const revealContact = async (req, res, next) => {
     }
 
     const match = await Match.findById(matchId)
-      .populate('userA', 'name mobile')
-      .populate('userB', 'name mobile');
+      .populate('userA', 'name mobile whatsapp email')
+      .populate('userB', 'name mobile whatsapp email')
+      .populate('requestA', 'contactOptions')
+      .populate('requestB', 'contactOptions');
 
     if (!match) {
       return res.status(404).json({ message: 'Match not found' });
@@ -88,11 +92,14 @@ const revealContact = async (req, res, next) => {
     }
 
     const partner = isUserA ? match.userB : match.userA;
+    const partnerRequest = isUserA ? match.requestB : match.requestA;
 
     res.json({
       message: 'Contact revealed successfully',
       partnerName: partner.name,
-      partnerMobile: partner.mobile,
+      partnerMobile: partnerRequest.contactOptions?.phone || partner.mobile,
+      partnerWhatsapp: partnerRequest.contactOptions?.whatsapp || partner.whatsapp,
+      partnerEmail: partnerRequest.contactOptions?.email || partner.email,
     });
   } catch (error) {
     next(error);

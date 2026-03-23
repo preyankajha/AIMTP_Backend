@@ -8,7 +8,9 @@ const {
   getCategories, addCategory, updateCategory, removeCategory,
   getPayLevels, addPayLevel, updatePayLevel, removePayLevel,
   getSelectionModes, addSelectionMode, updateSelectionMode, removeSelectionMode,
-  seedMasterData
+  seedMasterData,
+  getWorkstationTypes, addWorkstationType, updateWorkstationType, removeWorkstationType,
+  getLocations, addLocation, updateLocation, removeLocation
 } = require('../controllers/masterDataController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
@@ -51,5 +53,15 @@ router.get('/selection-modes', getSelectionModes);
 router.post('/selection-modes', addSelectionMode);
 router.put('/selection-modes/:id', updateSelectionMode);
 router.delete('/selection-modes/:id', removeSelectionMode);
+
+router.get('/workstation-types', getWorkstationTypes);
+router.post('/workstation-types', addWorkstationType);
+router.put('/workstation-types/:id', updateWorkstationType);
+router.delete('/workstation-types/:id', removeWorkstationType);
+
+router.get('/locations', getLocations);
+router.post('/locations', addLocation);
+router.put('/locations/:id', updateLocation);
+router.delete('/locations/:id', removeLocation);
 
 module.exports = router;

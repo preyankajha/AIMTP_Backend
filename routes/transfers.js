@@ -8,7 +8,8 @@ const {
   updateTransfer,
   searchTransfers,
   getPublicTransfers,
-  deleteTransfer,
+  getTransferDetails,
+  updateTransferStatus,
 } = require('../controllers/transferController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -47,8 +48,9 @@ router.post('/', protect, transferValidation, createTransfer);
 router.get('/my', protect, getMyTransfers);
 router.get('/search', protect, searchTransfers);
 router.get('/public', getPublicTransfers);
+router.get('/:id/details', protect, getTransferDetails);
 router.get('/:id', protect, getTransferById);
 router.put('/:id', protect, transferValidation, updateTransfer);
-router.delete('/:id', protect, deleteTransfer);
+router.put('/:id/status', protect, updateTransferStatus);
 
 module.exports = router;

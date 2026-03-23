@@ -24,9 +24,12 @@ const createTransfer = async (req, res, next) => {
       sector,
       currentZone, 
       currentDivision, 
+      currentWorkstation,
+      currentLocation,
       currentStation, 
       desiredLocations, // Array of {zone, division, station, priority}
-      workplaceRemark
+      workplaceRemark,
+      contactOptions
     } = req.body;
 
     // Check if user already has an active transfer request for exact same current location
@@ -86,6 +89,8 @@ const createTransfer = async (req, res, next) => {
       transferRequest.sector = sector;
       transferRequest.currentZone = currentZone;
       transferRequest.currentDivision = currentDivision;
+      transferRequest.currentWorkstation = currentWorkstation;
+      transferRequest.currentLocation = currentLocation;
       transferRequest.workplaceRemark = workplaceRemark;
 
       await transferRequest.save();
@@ -122,11 +127,14 @@ const createTransfer = async (req, res, next) => {
         sector,
         currentZone,
         currentDivision,
+        currentWorkstation,
+        currentLocation,
         currentStation: currentStation.toUpperCase(),
         desiredLocations: desiredLocations.map(loc => ({
           ...loc,
           station: loc.station.toUpperCase()
-        }))
+        })),
+        contactOptions
       });
       
       matches = await findAndCreateMatches(transferRequest);
@@ -141,12 +149,16 @@ const createTransfer = async (req, res, next) => {
       designation,
       currentZone,
       currentDivision,
+      currentWorkstation,
+      currentLocation,
       currentStation: currentStation.toUpperCase(),
       payLevel,
       gradePay,
       basicPay,
       category,
-      workplaceRemark
+      modeOfSelection,
+      workplaceRemark,
+      whatsapp: contactOptions?.whatsapp || undefined
     });
 
     let messageStr = 'Transfer request created successfully.';
@@ -250,11 +262,14 @@ const updateTransfer = async (req, res, next) => {
     if (updateData.sector || updateData.department || updateData.designation || updateData.currentStation) {
       const User = require('../models/User');
       const profileUpdates = {};
-      const fields = ['sector', 'department', 'subDepartment', 'designation', 'currentZone', 'currentDivision', 'currentStation', 'payLevel', 'gradePay', 'basicPay', 'category', 'workplaceRemark'];
+      const fields = ['sector', 'department', 'subDepartment', 'designation', 'modeOfSelection', 'currentZone', 'currentDivision', 'currentStation', 'payLevel', 'gradePay', 'basicPay', 'category', 'workplaceRemark'];
       fields.forEach(f => {
         if (updateData[f] !== undefined) profileUpdates[f] = updateData[f];
       });
       if (Object.keys(profileUpdates).length > 0) {
+        if (updateData.contactOptions?.whatsapp) {
+          profileUpdates.whatsapp = updateData.contactOptions.whatsapp;
+        }
         await User.findByIdAndUpdate(req.user._id, profileUpdates);
       }
     }
@@ -276,8 +291,8 @@ const searchTransfers = async (req, res, next) => {
   try {
     const { 
       sector, 
-      zone, division, station, 
-      desiredZone, desiredDivision, desiredStation,
+      zone, division, station, workstationType,
+      desiredZone, desiredDivision, desiredStation, desiredWorkstationType,
       page = 1, limit = 20 
     } = req.query;
 
@@ -287,11 +302,29 @@ const searchTransfers = async (req, res, next) => {
     
     if (zone) query.currentZone = { $regex: zone, $options: 'i' };
     if (division) query.currentDivision = { $regex: division, $options: 'i' };
-    if (station) query.currentStation = { $regex: station.toUpperCase(), $options: 'i' };
+    if (workstationType) query.currentWorkstation = { $regex: workstationType, $options: 'i' };
+    if (station) {
+       query.$and = query.$and || [];
+       query.$and.push({
+         $or: [
+           { currentStation: { $regex: station, $options: 'i' } },
+           { currentLocation: { $regex: station, $options: 'i' } }
+         ]
+       });
+    }
 
     if (desiredZone) query['desiredLocations.zone'] = { $regex: desiredZone, $options: 'i' };
     if (desiredDivision) query['desiredLocations.division'] = { $regex: desiredDivision, $options: 'i' };
-    if (desiredStation) query['desiredLocations.station'] = { $regex: desiredStation.toUpperCase(), $options: 'i' };
+    if (desiredWorkstationType) query['desiredLocations.workstation'] = { $regex: desiredWorkstationType, $options: 'i' };
+    if (desiredStation) {
+       query.$and = query.$and || [];
+       query.$and.push({
+         $or: [
+           { 'desiredLocations.station': { $regex: desiredStation, $options: 'i' } },
+           { 'desiredLocations.location': { $regex: desiredStation, $options: 'i' } }
+         ]
+       });
+    }
 
     const skip = (Number(page) - 1) * Number(limit);
     const total = await TransferRequest.countDocuments(query);
@@ -315,25 +348,40 @@ const searchTransfers = async (req, res, next) => {
   }
 };
 
-// @desc    Delete (cancel) a transfer request
-// @route   DELETE /api/transfers/:id
+// @desc    Update transfer request status
+// @route   PUT /api/transfers/:id/status
 // @access  Private
-const deleteTransfer = async (req, res, next) => {
+const updateTransferStatus = async (req, res, next) => {
   try {
+    const { status, statusRemark } = req.body;
+    
+    if (!['active', 'inactive', 'partner_found', 'matched'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status provided' });
+    }
+
+    if (!statusRemark || statusRemark.trim() === '') {
+      return res.status(400).json({ message: 'A remark is required when changing the status' });
+    }
+
     const transfer = await TransferRequest.findById(req.params.id);
 
     if (!transfer) {
       return res.status(404).json({ message: 'Transfer request not found' });
     }
 
-    // Only owner can delete
+    // Only owner can update status
     if (transfer.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to delete this request' });
+      return res.status(403).json({ message: 'Not authorized to update this request' });
     }
 
-    await transfer.deleteOne();
+    // Update using findByIdAndUpdate to bypass validation on missing legacy fields
+    const updatedTransfer = await TransferRequest.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status, statusRemark: statusRemark.trim() } },
+      { new: true, runValidators: false }
+    );
 
-    res.json({ message: 'Transfer request cancelled successfully' });
+    res.json({ message: 'Transfer request status updated successfully', transfer: updatedTransfer });
   } catch (error) {
     next(error);
   }
@@ -364,13 +412,33 @@ const getPublicTransfers = async (req, res, next) => {
   }
 };
 
+// @desc    Get transfer details for viewing (authenticated users)
+// @route   GET /api/transfers/:id/details
+// @access  Private
+const getTransferDetails = async (req, res, next) => {
+  try {
+    const transfer = await TransferRequest.findById(req.params.id)
+      .populate('userId', 'name profileImage sector department subDepartment designation mobile whatsapp email');
+
+    if (!transfer) {
+      return res.status(404).json({ message: 'Transfer request not found' });
+    }
+
+    // Return full details including contacts as per user's request for authenticated users
+    res.json(transfer);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = { 
   createTransfer, 
   getMyTransfers, 
   getTransferById, 
+  getTransferDetails,
   updateTransfer, 
   searchTransfers, 
   getPublicTransfers, 
-  deleteTransfer 
+  updateTransferStatus 
 };
 

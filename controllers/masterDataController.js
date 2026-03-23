@@ -4,6 +4,8 @@ const Sector = require('../models/Sector');
 const Category = require('../models/Category');
 const PayLevel = require('../models/PayLevel');
 const SelectionMode = require('../models/SelectionMode');
+const WorkstationType = require('../models/WorkstationType');
+const Location = require('../models/Location');
 
 // ──────────────────────────────────────────
 // PUBLIC ROUTES
@@ -30,23 +32,53 @@ const getPublicData = async (req, res, next) => {
       dbSectors, 
       dbCategories, 
       dbPayLevels, 
-      dbSelectionModes
+      dbSelectionModes,
+      dbWorkstationTypes,
+      dbLocations
     ] = await Promise.all([
       Zone.find().lean(),
       Department.find().lean(),
       Sector.find().lean(),
       Category.find().lean(),
       PayLevel.find().sort({ sortOrder: 1 }).lean(),
-      SelectionMode.find().lean()
+      SelectionMode.find().lean(),
+      WorkstationType.find({ active: true }).lean(),
+      Location.find({ active: true }).lean()
     ]);
+
+    const workstationTypes = dbWorkstationTypes.map(w => w.name).sort(sortWithOtherLast);
 
     // Map DB array into the frontend's legacy object map shape
     const regionData = {};
     dbZones.sort(sortWithOtherLast).forEach(z => {
       const divMap = {};
       z.divisions.sort(sortWithOtherLast).forEach(d => {
-        const sortedStations = d.stations && d.stations.length ? [...d.stations].sort(sortWithOtherLast) : ['Other'];
-        divMap[d.name] = sortedStations;
+        const workstationMap = {};
+        workstationTypes.forEach(wt => {
+          workstationMap[wt] = [];
+        });
+
+        // Map matching locations from flat loads
+        const locs = dbLocations.filter(l => l.zone === z.name && l.division === d.name);
+        locs.forEach(l => {
+          if (workstationMap[l.workstationType]) {
+            workstationMap[l.workstationType].push(l.name);
+          }
+        });
+
+        // Standard with Other logic
+
+        // Standard with Other logic
+        Object.keys(workstationMap).forEach(wt => {
+          if (workstationMap[wt].length === 0) {
+            workstationMap[wt] = ['Other'];
+          } else {
+            if (!workstationMap[wt].includes('Other')) workstationMap[wt].push('Other');
+            workstationMap[wt].sort(sortWithOtherLast);
+          }
+        });
+
+        divMap[d.name] = workstationMap;
       });
       regionData[z.name] = {
         code: z.code,
@@ -82,7 +114,7 @@ const getPublicData = async (req, res, next) => {
       label: m.label
     }));
 
-    res.json({ regionData, departments: departmentsData, sectors, categories, payLevels, modeOfSelection });
+    res.json({ regionData, departments: departmentsData, sectors, categories, payLevels, modeOfSelection, workstationTypes });
   } catch (error) {
     next(error);
   }
@@ -431,10 +463,89 @@ const seedMasterData = async (req, res, next) => {
     ];
     await SelectionMode.insertMany(initialModes);
 
+    const WorkstationType = require('../models/WorkstationType');
+    const staticWorkstations = [
+      "Station", "Workshop", "Loco Shed", "Hospital", "Health Unit", 
+      "Office (Divisional/Zonal)", "Goods Shed", "Freight Terminal", "Parcel Office", 
+      "Container Depot", "Coaching Depot", "Wagon Depot", "Sick Line", "Pit Line", 
+      "Traction Substation", "TRD Depot", "Power House", "Train Lighting Depot", 
+      "Signal Cabin", "Relay Room", "Telecom Office", "Track (P-Way)", "PWI Office", 
+      "Gang Hut", "Bridge Site", "Crew Lobby", "Running Room", "Rest House", 
+      "Railway Colony", "RPF Post", "GRP Station"
+    ];
+    await WorkstationType.deleteMany({});
+    await WorkstationType.insertMany(staticWorkstations.map(name => ({ name })));
+
     res.json({ message: 'Master Data successfully seeded' });
   } catch (error) {
     next(error);
   }
+};
+
+// ──────────────────────────────────────────
+// ADMIN CRUD: WORKSTATION TYPES
+// ──────────────────────────────────────────
+
+const getWorkstationTypes = async (req, res, next) => {
+  try {
+    const list = await WorkstationType.find().lean();
+    res.json(list);
+  } catch (error) { next(error); }
+};
+
+const addWorkstationType = async (req, res, next) => {
+  try {
+    const item = new WorkstationType(req.body);
+    await item.save();
+    res.status(201).json(item);
+  } catch (error) { next(error); }
+};
+
+const updateWorkstationType = async (req, res, next) => {
+  try {
+    const item = await WorkstationType.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(item);
+  } catch (error) { next(error); }
+};
+
+const removeWorkstationType = async (req, res, next) => {
+  try {
+    await WorkstationType.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Workstation Type removed' });
+  } catch (error) { next(error); }
+};
+
+// ──────────────────────────────────────────
+// ADMIN CRUD: LOCATIONS
+// ──────────────────────────────────────────
+
+const getLocations = async (req, res, next) => {
+  try {
+    const list = await Location.find().lean();
+    res.json(list);
+  } catch (error) { next(error); }
+};
+
+const addLocation = async (req, res, next) => {
+  try {
+    const item = new Location(req.body);
+    await item.save();
+    res.status(201).json(item);
+  } catch (error) { next(error); }
+};
+
+const updateLocation = async (req, res, next) => {
+  try {
+    const item = await Location.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(item);
+  } catch (error) { next(error); }
+};
+
+const removeLocation = async (req, res, next) => {
+  try {
+    await Location.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Location removed' });
+  } catch (error) { next(error); }
 };
 
 
@@ -446,5 +557,7 @@ module.exports = {
   getCategories, addCategory, updateCategory, removeCategory,
   getPayLevels, addPayLevel, updatePayLevel, removePayLevel,
   getSelectionModes, addSelectionMode, updateSelectionMode, removeSelectionMode,
-  seedMasterData
+  seedMasterData,
+  getWorkstationTypes, addWorkstationType, updateWorkstationType, removeWorkstationType,
+  getLocations, addLocation, updateLocation, removeLocation
 };

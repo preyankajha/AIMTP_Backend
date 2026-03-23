@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema(
       match: [/^([6-9]\d{9})?$/, 'Please enter a valid 10-digit mobile number'],
       default: '',
     },
+    whatsapp: {
+      type: String,
+      match: [/^([6-9]\d{9})?$/, 'Please enter a valid 10-digit WhatsApp number'],
+      default: '',
+    },
     email: {
       type: String,
       required: [true, 'Email is required'],
@@ -50,12 +55,19 @@ const userSchema = new mongoose.Schema(
     designation: { type: String, default: '' },
     currentZone: { type: String, default: '' },
     currentDivision: { type: String, default: '' },
+    currentWorkstation: { type: String, default: '' },
+    currentLocation: { type: String, default: '' },
     currentStation: { type: String, default: '' },
     payLevel: { type: String, default: '' },
     gradePay: { type: String, default: '' },
     basicPay: { type: String, default: '' },
     category: { type: String, default: '' },
+    modeOfSelection: { type: String, default: '' },
     workplaceRemark: { type: String, default: '', maxlength: 500 },
+    termsAccepted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

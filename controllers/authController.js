@@ -46,6 +46,7 @@ const register = async (req, res, next) => {
       mobile,
       email,
       passwordHash: password, // Will be hashed by pre-save hook
+      termsAccepted: true,
     });
 
     // Create welcome notification
@@ -77,6 +78,7 @@ const register = async (req, res, next) => {
         department: user.department,
         subDepartment: user.subDepartment,
         designation: user.designation,
+        modeOfSelection: user.modeOfSelection,
         currentZone: user.currentZone,
         currentDivision: user.currentDivision,
         currentStation: user.currentStation,
@@ -134,6 +136,7 @@ const login = async (req, res, next) => {
         department: user.department,
         subDepartment: user.subDepartment,
         designation: user.designation,
+        modeOfSelection: user.modeOfSelection,
         currentZone: user.currentZone,
         currentDivision: user.currentDivision,
         currentStation: user.currentStation,
@@ -208,6 +211,7 @@ const googleAuth = async (req, res, next) => {
         googleId,
         verified: true,
         profileImage: picture || '',
+        termsAccepted: true,
       });
       
       const Notification = require('../models/Notification');
@@ -239,6 +243,7 @@ const googleAuth = async (req, res, next) => {
         department: user.department,
         subDepartment: user.subDepartment,
         designation: user.designation,
+        modeOfSelection: user.modeOfSelection,
         currentZone: user.currentZone,
         currentDivision: user.currentDivision,
         currentStation: user.currentStation,
@@ -408,6 +413,7 @@ const verifyEmailOtp = async (req, res, next) => {
         department: user.department,
         subDepartment: user.subDepartment,
         designation: user.designation,
+        modeOfSelection: user.modeOfSelection,
         currentZone: user.currentZone,
         currentDivision: user.currentDivision,
         currentStation: user.currentStation,
@@ -416,6 +422,7 @@ const verifyEmailOtp = async (req, res, next) => {
         basicPay: user.basicPay,
         category: user.category,
         workplaceRemark: user.workplaceRemark,
+        whatsapp: user.whatsapp,
       }
     });
   } catch (error) {
@@ -587,7 +594,7 @@ const updateProfileImage = async (req, res, next) => {
 // @access  Private
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, mobile, sector, department, subDepartment, designation, currentZone, currentDivision, currentStation, payLevel, gradePay, basicPay, category, workplaceRemark } = req.body;
+    const { name, mobile, whatsapp, sector, department, subDepartment, designation, modeOfSelection, currentZone, currentDivision, currentWorkstation, currentLocation, currentStation, payLevel, gradePay, basicPay, category, workplaceRemark } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -596,15 +603,19 @@ const updateProfile = async (req, res, next) => {
 
     if (name) user.name = name;
     if (mobile) user.mobile = mobile;
+    if (whatsapp !== undefined) user.whatsapp = whatsapp;
     
     // Update profile fields
     user.sector = sector ?? user.sector;
     user.department = department ?? user.department;
     user.subDepartment = subDepartment ?? user.subDepartment;
     user.designation = designation ?? user.designation;
+    user.modeOfSelection = modeOfSelection ?? user.modeOfSelection;
     user.currentZone = currentZone ?? user.currentZone;
     user.currentDivision = currentDivision ?? user.currentDivision;
-    user.currentStation = currentStation ?? user.currentStation;
+    user.currentWorkstation = currentWorkstation ?? user.currentWorkstation;
+    user.currentLocation = currentLocation ?? user.currentLocation;
+    user.currentStation = currentStation ?? currentLocation ?? user.currentStation;
     user.payLevel = payLevel ?? user.payLevel;
     user.gradePay = gradePay ?? user.gradePay;
     user.basicPay = basicPay ?? user.basicPay;

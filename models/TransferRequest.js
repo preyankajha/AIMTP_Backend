@@ -42,17 +42,28 @@ const transferRequestSchema = new mongoose.Schema(
       required: [true, 'Current Division is required'],
       trim: true,
     },
+    currentWorkstation: {
+      type: String,
+      required: [true, 'Current Workstation is required'],
+      trim: true,
+    },
+    currentLocation: {
+      type: String,
+      required: [true, 'Current Location is required'],
+      trim: true,
+    },
     currentStation: {
       type: String,
-      required: [true, 'Current Station is required'],
+      default: '', // Making it optional for backward support
       trim: true,
-      uppercase: true,
     },
     desiredLocations: [
       {
         zone: { type: String, required: true },
         division: { type: String, required: true },
-        station: { type: String, required: true },
+        workstation: { type: String, required: true },
+        location: { type: String, required: true },
+        station: { type: String, default: '' },
         priority: { type: Number, default: 1 }
       }
     ],
@@ -81,8 +92,19 @@ const transferRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'matched', 'cancelled'],
+      enum: ['active', 'matched', 'cancelled', 'inactive', 'partner_found'],
       default: 'active',
+    },
+    statusRemark: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 300,
+    },
+    contactOptions: {
+      email: { type: String, trim: true, lowercase: true },
+      phone: { type: String, trim: true },
+      whatsapp: { type: String, trim: true },
     },
   },
   { timestamps: true }

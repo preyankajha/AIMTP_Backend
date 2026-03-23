@@ -1,8 +1,7 @@
 const mongoose = require('mongoose');
 
 const divisionSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  stations: [{ type: String }],
+  name: { type: String, required: true }
 });
 
 const zoneSchema = new mongoose.Schema(

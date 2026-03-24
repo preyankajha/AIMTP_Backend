@@ -10,8 +10,14 @@ const {
   getSelectionModes, addSelectionMode, updateSelectionMode, removeSelectionMode,
   seedMasterData,
   getWorkstationTypes, addWorkstationType, updateWorkstationType, removeWorkstationType,
-  getLocations, addLocation, updateLocation, removeLocation
+  getLocations, addLocation, updateLocation, removeLocation,
+  getDuplicates, removeDuplicates
 } = require('../controllers/masterDataController');
+const { 
+  submitSuggestion, 
+  getSuggestions, 
+  updateSuggestionStatus 
+} = require('../controllers/suggestionController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 // Public route for dropdowns
@@ -22,6 +28,16 @@ router.post('/seed', protect, adminOnly, seedMasterData);
 
 // Protected Admin Routes
 router.use(protect);
+
+// User & Admin Suggestions
+router.post('/suggestions', submitSuggestion);
+router.get('/suggestions', getSuggestions);
+router.put('/suggestions/:id', protect, adminOnly, (req, res, next) => {
+  // We'll define updateSuggestion in controller
+  const { updateSuggestion } = require('../controllers/suggestionController');
+  updateSuggestion(req, res, next);
+});
+
 router.use(adminOnly);
 
 router.get('/zones', getZones);
@@ -63,5 +79,11 @@ router.get('/locations', getLocations);
 router.post('/locations', addLocation);
 router.put('/locations/:id', updateLocation);
 router.delete('/locations/:id', removeLocation);
+
+router.get('/duplicates', getDuplicates);
+router.post('/remove-duplicates', removeDuplicates);
+
+// Admin-only suggestion management
+router.patch('/suggestions/:id', updateSuggestionStatus);
 
 module.exports = router;

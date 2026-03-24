@@ -29,7 +29,8 @@ const createTransfer = async (req, res, next) => {
       currentStation, 
       desiredLocations, // Array of {zone, division, station, priority}
       workplaceRemark,
-      contactOptions
+      contactOptions,
+      appointmentDate
     } = req.body;
 
     // Check if user already has an active transfer request for exact same current location
@@ -134,7 +135,8 @@ const createTransfer = async (req, res, next) => {
           ...loc,
           station: loc.station.toUpperCase()
         })),
-        contactOptions
+        contactOptions,
+        appointmentDate
       });
       
       matches = await findAndCreateMatches(transferRequest);
@@ -158,6 +160,7 @@ const createTransfer = async (req, res, next) => {
       category,
       modeOfSelection,
       workplaceRemark,
+      appointmentDate,
       whatsapp: contactOptions?.whatsapp || undefined
     });
 
@@ -262,7 +265,7 @@ const updateTransfer = async (req, res, next) => {
     if (updateData.sector || updateData.department || updateData.designation || updateData.currentStation) {
       const User = require('../models/User');
       const profileUpdates = {};
-      const fields = ['sector', 'department', 'subDepartment', 'designation', 'modeOfSelection', 'currentZone', 'currentDivision', 'currentStation', 'payLevel', 'gradePay', 'basicPay', 'category', 'workplaceRemark'];
+      const fields = ['sector', 'department', 'subDepartment', 'designation', 'modeOfSelection', 'currentZone', 'currentDivision', 'currentStation', 'payLevel', 'gradePay', 'basicPay', 'category', 'workplaceRemark', 'appointmentDate'];
       fields.forEach(f => {
         if (updateData[f] !== undefined) profileUpdates[f] = updateData[f];
       });

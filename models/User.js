@@ -64,6 +64,10 @@ const userSchema = new mongoose.Schema(
     category: { type: String, default: '' },
     modeOfSelection: { type: String, default: '' },
     workplaceRemark: { type: String, default: '', maxlength: 500 },
+    appointmentDate: {
+      type: Date,
+      default: null,
+    },
     termsAccepted: {
       type: Boolean,
       default: false,

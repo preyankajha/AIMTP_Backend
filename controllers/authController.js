@@ -87,6 +87,7 @@ const register = async (req, res, next) => {
         basicPay: user.basicPay,
         category: user.category,
         workplaceRemark: user.workplaceRemark,
+        appointmentDate: user.appointmentDate,
       },
     });
   } catch (error) {
@@ -145,6 +146,7 @@ const login = async (req, res, next) => {
         basicPay: user.basicPay,
         category: user.category,
         workplaceRemark: user.workplaceRemark,
+        appointmentDate: user.appointmentDate,
       },
     });
   } catch (error) {
@@ -252,6 +254,7 @@ const googleAuth = async (req, res, next) => {
         basicPay: user.basicPay,
         category: user.category,
         workplaceRemark: user.workplaceRemark,
+        appointmentDate: user.appointmentDate,
       },
     });
   } catch (error) {
@@ -423,6 +426,7 @@ const verifyEmailOtp = async (req, res, next) => {
         category: user.category,
         workplaceRemark: user.workplaceRemark,
         whatsapp: user.whatsapp,
+        appointmentDate: user.appointmentDate,
       }
     });
   } catch (error) {
@@ -594,7 +598,7 @@ const updateProfileImage = async (req, res, next) => {
 // @access  Private
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, mobile, whatsapp, sector, department, subDepartment, designation, modeOfSelection, currentZone, currentDivision, currentWorkstation, currentLocation, currentStation, payLevel, gradePay, basicPay, category, workplaceRemark } = req.body;
+    const { name, mobile, whatsapp, sector, department, subDepartment, designation, modeOfSelection, currentZone, currentDivision, currentWorkstation, currentLocation, currentStation, payLevel, gradePay, basicPay, category, workplaceRemark, appointmentDate } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -621,6 +625,7 @@ const updateProfile = async (req, res, next) => {
     user.basicPay = basicPay ?? user.basicPay;
     user.category = category ?? user.category;
     user.workplaceRemark = workplaceRemark ?? user.workplaceRemark;
+    user.appointmentDate = appointmentDate ?? user.appointmentDate;
 
     await user.save();
 

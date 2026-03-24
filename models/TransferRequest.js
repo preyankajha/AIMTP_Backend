@@ -101,6 +101,10 @@ const transferRequestSchema = new mongoose.Schema(
       trim: true,
       maxlength: 300,
     },
+    appointmentDate: {
+      type: Date,
+      default: null,
+    },
     contactOptions: {
       email: { type: String, trim: true, lowercase: true },
       phone: { type: String, trim: true },

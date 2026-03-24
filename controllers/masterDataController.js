@@ -547,7 +547,128 @@ const removeLocation = async (req, res, next) => {
     res.json({ message: 'Location removed' });
   } catch (error) { next(error); }
 };
+// ──────────────────────────────────────────
+// ADMIN ACTION: MANAGE DUPLICATES
+// ──────────────────────────────────────────
 
+const getDuplicates = async (req, res, next) => {
+  try {
+    const { type } = req.query;
+    let duplicates = [];
+
+    if (type === 'zones') {
+      const allZones = await Zone.find().lean();
+      const names = allZones.map(z => z.name.toLowerCase());
+      const uniqueNames = new Set();
+      const duplicateNames = new Set();
+
+      names.forEach(name => {
+        if (uniqueNames.has(name)) duplicateNames.add(name);
+        else uniqueNames.add(name);
+      });
+
+      duplicates = allZones.filter(z => duplicateNames.has(z.name.toLowerCase()));
+    } else if (type === 'locations') {
+      const allLocs = await Location.find().lean();
+      // Concatenate key fields to find duplicates
+      const keys = allLocs.map(l => `${l.zone}|${l.division}|${l.workstationType}|${l.name}`.toLowerCase());
+      const uniqueKeys = new Set();
+      const duplicateKeys = new Set();
+
+      keys.forEach(key => {
+        if (uniqueKeys.has(key)) duplicateKeys.add(key);
+        else uniqueKeys.add(key);
+      });
+
+      duplicates = allLocs.filter(l => {
+        const key = `${l.zone}|${l.division}|${l.workstationType}|${l.name}`.toLowerCase();
+        return duplicateKeys.has(key);
+      });
+    } else if (type === 'departments') {
+      const allDepts = await Department.find().lean();
+      const names = allDepts.map(d => d.name.toLowerCase());
+      const uniqueNames = new Set();
+      const duplicateNames = new Set();
+
+      names.forEach(name => {
+        if (uniqueNames.has(name)) duplicateNames.add(name);
+        else uniqueNames.add(name);
+      });
+
+      duplicates = allDepts.filter(d => duplicateNames.has(d.name.toLowerCase()));
+    } else if (type === 'workstationTypes') {
+      const allTypes = await WorkstationType.find().lean();
+      const names = allTypes.map(w => w.name.toLowerCase());
+      const uniqueNames = new Set();
+      const duplicateNames = new Set();
+
+      names.forEach(name => {
+        if (uniqueNames.has(name)) duplicateNames.add(name);
+        else uniqueNames.add(name);
+      });
+
+      duplicates = allTypes.filter(w => duplicateNames.has(w.name.toLowerCase()));
+    }
+
+    res.json(duplicates);
+  } catch (error) { next(error); }
+};
+
+const removeDuplicates = async (req, res, next) => {
+  try {
+    const { type } = req.body;
+    let removedCount = 0;
+
+    if (type === 'zones') {
+      const allZones = await Zone.find().sort({ createdAt: 1 });
+      const seen = new Set();
+      for (const z of allZones) {
+        if (seen.has(z.name.toLowerCase())) {
+          await Zone.findByIdAndDelete(z._id);
+          removedCount++;
+        } else {
+          seen.add(z.name.toLowerCase());
+        }
+      }
+    } else if (type === 'locations') {
+      const allLocs = await Location.find().sort({ createdAt: 1 });
+      const seen = new Set();
+      for (const l of allLocs) {
+        const key = `${l.zone}|${l.division}|${l.workstationType}|${l.name}`.toLowerCase();
+        if (seen.has(key)) {
+          await Location.findByIdAndDelete(l._id);
+          removedCount++;
+        } else {
+          seen.add(key);
+        }
+      }
+    } else if (type === 'departments') {
+      const allDepts = await Department.find().sort({ createdAt: 1 });
+      const seen = new Set();
+      for (const d of allDepts) {
+        if (seen.has(d.name.toLowerCase())) {
+          await Department.findByIdAndDelete(d._id);
+          removedCount++;
+        } else {
+          seen.add(d.name.toLowerCase());
+        }
+      }
+    } else if (type === 'workstationTypes') {
+      const allTypes = await WorkstationType.find().sort({ createdAt: 1 });
+      const seen = new Set();
+      for (const w of allTypes) {
+        if (seen.has(w.name.toLowerCase())) {
+          await WorkstationType.findByIdAndDelete(w._id);
+          removedCount++;
+        } else {
+          seen.add(w.name.toLowerCase());
+        }
+      }
+    }
+
+    res.json({ message: `Successfully removed ${removedCount} duplicates.`, removedCount });
+  } catch (error) { next(error); }
+};
 
 module.exports = {
   getPublicData,
@@ -559,5 +680,6 @@ module.exports = {
   getSelectionModes, addSelectionMode, updateSelectionMode, removeSelectionMode,
   seedMasterData,
   getWorkstationTypes, addWorkstationType, updateWorkstationType, removeWorkstationType,
-  getLocations, addLocation, updateLocation, removeLocation
+  getLocations, addLocation, updateLocation, removeLocation,
+  getDuplicates, removeDuplicates
 };

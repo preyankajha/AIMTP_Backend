@@ -39,8 +39,8 @@ app.use(compression());
 
 // 3. API Rate Limiting (Brute-force protection)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000, 
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for dev
   message: { message: 'Too many requests from this IP, please try again after 15 minutes' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -53,7 +53,12 @@ app.set('trust proxy', 1);
 // CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || [/localhost:\d+/],
+    origin: process.env.CLIENT_URL || [
+      'http://localhost:5173', 
+      'http://localhost:5174', 
+      'http://127.0.0.1:5173',
+      'http://localhost:3000'
+    ],
     credentials: true,
   })
 );

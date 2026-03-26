@@ -226,10 +226,13 @@ const suspendUser = async (req, res, next) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (user.role === 'admin') return res.status(403).json({ message: 'Cannot suspend admin users' });
 
-    user.verified = !user.verified;
+    user.isSuspended = !user.isSuspended;
     await user.save();
 
-    res.json({ message: `User ${user.verified ? 'activated' : 'suspended'} successfully`, verified: user.verified });
+    res.json({ 
+      message: `User account ${user.isSuspended ? 'suspended' : 'activated'} successfully`, 
+      isSuspended: user.isSuspended 
+    });
   } catch (error) {
     next(error);
   }

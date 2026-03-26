@@ -24,15 +24,7 @@ const transferValidation = [
   body('currentDivision').trim().notEmpty().withMessage('Current Division is required'),
   body('currentStation').trim().notEmpty().withMessage('Current Station is required'),
   body('workplaceRemark').trim().notEmpty().withMessage('Working condition remarks are required'),
-  body('desiredLocations').isArray({ min: 1, max: 4 }).withMessage('You can add a maximum of 4 desired locations')
-    .custom((locations) => {
-      const priorities = locations.map(loc => parseInt(loc.priority) || 1);
-      const uniquePriorities = new Set(priorities);
-      if (uniquePriorities.size !== priorities.length) {
-        throw new Error('Each desired location must have a unique priority.');
-      }
-      return true;
-    }),
+  body('desiredLocations').isArray({ min: 1, max: 20 }).withMessage('You can add a maximum of 20 desired locations'),
   body('desiredLocations.*.zone').trim().notEmpty().withMessage('Desired Zone is required'),
   body('desiredLocations.*.division').trim().notEmpty().withMessage('Desired Division is required'),
   body('desiredLocations.*.station').trim().notEmpty().withMessage('Desired Station is required')

@@ -53,8 +53,6 @@ const createTransfer = async (req, res, next) => {
       const existingLocsStr = transferRequest.desiredLocations.map(
         l => `${l.zone}-${l.division}-${l.station.toUpperCase()}`
       );
-      const existingPriorities = transferRequest.desiredLocations.map(l => l.priority);
-      
       const newLocs = desiredLocations.map(loc => ({
         ...loc,
         station: loc.station.toUpperCase()
@@ -65,17 +63,11 @@ const createTransfer = async (req, res, next) => {
         if (!existingLocsStr.includes(key)) {
           const priorityToUse = parseInt(loc.priority) || (transferRequest.desiredLocations.length + 1);
           
-          if (existingPriorities.includes(priorityToUse)) {
-            return res.status(400).json({ message: `Priority P${priorityToUse} is already used in your existing transfer request. Please select a different priority.` });
-          }
-
-          if (transferRequest.desiredLocations.length >= 4) {
-             // We give 4 as max according to the user message request, let's keep 4.
-            return res.status(400).json({ message: 'You have exhausted the maximum limit of 4 desired locations for this request. Cannot add more desired locations.' });
+          if (transferRequest.desiredLocations.length >= 20) {
+            return res.status(400).json({ message: 'You have exhausted the maximum limit of 20 desired locations for this request. Cannot add more desired locations.' });
           }
 
           transferRequest.desiredLocations.push({ ...loc, priority: priorityToUse });
-          existingPriorities.push(priorityToUse);
           existingLocsStr.push(key);
           addedAny = true;
         }
@@ -111,6 +103,10 @@ const createTransfer = async (req, res, next) => {
         return res.status(400).json({ 
           message: `You have reached the maximum limit of ${maxRequests} active transfer requests. Please delete an existing request under a different position to create a new one.` 
         });
+      }
+
+      if (desiredLocations && desiredLocations.length > 20) {
+        return res.status(400).json({ message: 'You can add up to 20 desired locations only.' });
       }
 
       // Create new transfer request
@@ -246,6 +242,9 @@ const updateTransfer = async (req, res, next) => {
     const updateData = { ...req.body };
     if (updateData.currentStation) updateData.currentStation = updateData.currentStation.toUpperCase();
     if (updateData.desiredLocations) {
+      if (updateData.desiredLocations.length > 20) {
+        return res.status(400).json({ message: 'You can add up to 20 desired locations only.' });
+      }
       updateData.desiredLocations = updateData.desiredLocations.map(loc => ({
         ...loc,
         station: loc.station.toUpperCase()

@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isSuspended: {
+      type: Boolean,
+      default: false,
+    },
     role: {
       type: String,
       enum: ['employee', 'admin'],
@@ -71,6 +75,14 @@ const userSchema = new mongoose.Schema(
     termsAccepted: {
       type: Boolean,
       default: false,
+    },
+    loginCount: {
+      type: Number,
+      default: 0,
+    },
+    totalTimeSpent: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

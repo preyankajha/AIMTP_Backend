@@ -21,6 +21,60 @@ const generateRefreshToken = (id, rememberMe = false) => {
   });
 };
 
+const sendWelcomeEmail = async (user) => {
+  try {
+    const sendEmail = require('../utils/email');
+    await sendEmail({
+      email: user.email,
+      subject: 'Welcome to All India Mutual Transfer Portal - Next Steps',
+      html: `
+        <div style="font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #eff6ff; border-radius: 32px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <div style="display: inline-block; background-color: #1e40af; padding: 12px 24px; border-radius: 16px; margin-bottom: 12px;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em; text-transform: uppercase;">AIMTP</h1>
+            </div>
+            <p style="color: #1e3a8a; margin: 0; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em;">Success Starts Here</p>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 45px; border-radius: 28px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05); border: 1px solid #dbeafe;">
+            <h2 style="color: #0f172a; margin: 0 0 20px; font-size: 26px; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em;">Welcome Aboard, ${user.name.split(' ')[0]}!</h2>
+            <p style="color: #475569; margin: 0 0 28px; font-size: 16px; line-height: 1.7;">You have successfully joined the most advanced professional network for Indian Railway employees. We are committed to helping you find the perfect mutual transfer match with ease and transparency.</p>
+            
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; margin-bottom: 35px; border-radius: 20px;">
+              <h3 style="color: #1e40af; margin: 0 0 15px; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; items-center gap: 8px;">
+                🚀 Critical Next Steps
+              </h3>
+              <div style="margin-bottom: 15px; display: flex; align-items: flex-start; gap: 12px;">
+                <div style="background-color: #dcfce7; color: #15803d; border-radius: 50%; min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; margin-top: 2px;">1</div>
+                <p style="color: #334155; margin: 0; font-size: 14px; line-height: 1.5;"><strong style="color: #0f172a;">Complete Your Work Profile:</strong> A complete profile ensures you rank higher in searches and receive more relevant match suggestions.</p>
+              </div>
+              <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <div style="background-color: #dbeafe; color: #1e40af; border-radius: 50%; min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; margin-top: 2px;">2</div>
+                <p style="color: #334155; margin: 0; font-size: 14px; line-height: 1.5;"><strong style="color: #0f172a;">Post Your Transfer Request:</strong> Specify your current posting and desired locations to activate our real-time matching engine.</p>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 10px;">
+              <a href="https://aimtp.in/profile" style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 18px 40px; border-radius: 16px; text-decoration: none; font-weight: 800; font-size: 15px; transition: all 0.2s; letter-spacing: 0.5px;">Finalize My Profile Now</a>
+            </div>
+            <p style="text-align: center; color: #94a3b8; font-size: 11px; font-weight: 600; margin-top: 15px;">Secure professional access • Encrypted data</p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 35px; padding: 0 20px;">
+            <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.6;">You are receiving this email as a registered member of the All India Mutual Transfer Portal. Please do not reply to this automated message.</p>
+            <div style="margin-top: 20px; border-top: 1px solid #dbeafe; pt: 20px;">
+              <p style="color: #94a3b8; font-size: 11px; margin: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">© ${new Date().getFullYear()} All India Mutual Transfer Portal</p>
+            </div>
+          </div>
+        </div>
+      `,
+      message: `Welcome to AIMTP, ${user.name}! Please complete your work profile and post your transfer request at https://aimtp.in/profile to start finding matches.`
+    });
+  } catch (err) {
+    console.error('Welcome email failed:', err);
+  }
+};
+
 // In-memory store for OTPs
 const otpStore = new Map();
 
@@ -35,6 +89,13 @@ const register = async (req, res, next) => {
     }
 
     const { name, mobile, email, password } = req.body;
+    
+    // Domain Restriction
+    const allowedDomains = ['gmail.com', 'hotmail.com', 'zohomail.com'];
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+    if (!allowedDomains.includes(emailDomain)) {
+      return res.status(403).json({ message: 'Registration is restricted to Gmail, Hotmail, and Zohomail only.' });
+    }
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -47,6 +108,7 @@ const register = async (req, res, next) => {
       email,
       passwordHash: password, // Will be hashed by pre-save hook
       termsAccepted: true,
+      loginCount: 1,
     });
 
     // Create welcome notification
@@ -58,6 +120,9 @@ const register = async (req, res, next) => {
       type: 'info',
       link: '/transfers/create'
     });
+
+    // Send professional welcome email
+    sendWelcomeEmail(user);
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
@@ -117,6 +182,9 @@ const login = async (req, res, next) => {
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
+
+    user.loginCount = (user.loginCount || 0) + 1;
+    await user.save();
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id, rememberMe);
@@ -204,9 +272,17 @@ const googleAuth = async (req, res, next) => {
         if (!user.profileImage) {
           user.profileImage = picture;
         }
-        await user.save();
       }
+      user.loginCount = (user.loginCount || 0) + 1;
+      await user.save();
     } else {
+      // Domain Restriction for new users
+      const allowedDomains = ['gmail.com', 'hotmail.com', 'zohomail.com'];
+      const emailDomain = email.split('@')[1]?.toLowerCase();
+      if (!allowedDomains.includes(emailDomain)) {
+        return res.status(403).json({ message: 'Registration via Google is restricted to Gmail, Hotmail, and Zohomail accounts.' });
+      }
+
       user = await User.create({
         name,
         email,
@@ -214,6 +290,7 @@ const googleAuth = async (req, res, next) => {
         verified: true,
         profileImage: picture || '',
         termsAccepted: true,
+        loginCount: 1,
       });
       
       const Notification = require('../models/Notification');
@@ -224,6 +301,9 @@ const googleAuth = async (req, res, next) => {
         type: 'info',
         link: '/transfers/create'
       });
+      
+      // Send professional welcome email
+      sendWelcomeEmail(user);
     }
 
     const accessToken = generateAccessToken(user._id);
@@ -635,4 +715,26 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, googleAuth, getProfile, updateProfile, refresh, changePassword, sendVerificationOtp, verifyEmailOtp, forgotPassword, resetPassword, uploadProfileImage, updateProfileImage };
+// @desc    Track user session time
+// @route   POST /api/auth/track-time
+// @access  Private
+const trackTime = async (req, res, next) => {
+  try {
+    const { deltaSeconds } = req.body;
+    if (!deltaSeconds || deltaSeconds <= 0 || deltaSeconds > 300) {
+      return res.status(400).json({ message: 'Invalid delta time' });
+    }
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.totalTimeSpent = (user.totalTimeSpent || 0) + deltaSeconds;
+    // skip pre-save hooks if possible to avoid unnecessary processing, actually pre-save hook for passwordHash checks isModified, so it's perfectly safe
+    await user.save();
+
+    res.json({ message: 'Time tracked', totalTimeSpent: user.totalTimeSpent });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, googleAuth, getProfile, updateProfile, refresh, changePassword, sendVerificationOtp, verifyEmailOtp, forgotPassword, resetPassword, uploadProfileImage, updateProfileImage, trackTime };

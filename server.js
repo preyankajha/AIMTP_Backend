@@ -16,23 +16,51 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const adminRoutes = require('./routes/admin');
 const masterDataRoutes = require('./routes/masterDataRoutes');
 const analyticsRoutes = require('./routes/analytics');
+const setupCronJobs = require('./utils/cronJobs');
 
 // Connect to MongoDB
 connectDB();
+// Start Scheduled Tasks
+setupCronJobs();
 
 const app = express();
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+
+// -- PRODUCTION READINESS MIDDLEWARE --
+// 1. Static security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// 2. Response compression (Gzip)
+app.use(compression());
+
+// 3. API Rate Limiting (Brute-force protection)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiter to all API routes
+app.use('/api', limiter);
+
 app.set('trust proxy', 1);
 // CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173' || 'http://localhost:5174',
+    origin: process.env.CLIENT_URL || [/localhost:\d+/],
     credentials: true,
   })
 );
 
 // Body parser
 app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 
 // HTTP logger (dev only)
 if (process.env.NODE_ENV !== 'production') {
